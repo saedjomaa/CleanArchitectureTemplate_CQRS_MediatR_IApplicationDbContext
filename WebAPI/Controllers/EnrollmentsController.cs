@@ -1,4 +1,3 @@
-using Application.Common.Abstractions;
 using Application.Common.Pagination;
 using Application.Common.Responses;
 using Application.Common.Results;
@@ -6,6 +5,7 @@ using Application.Enrollments.Commands.CancelEnrollment;
 using Application.Enrollments.Commands.EnrollStudent;
 using Application.Enrollments.Queries.GetEnrollment;
 using Application.Enrollments.Queries.ListStudentCourses;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using WebAPI.Diagnostics;
 
@@ -13,7 +13,7 @@ namespace WebAPI.Controllers;
 
 [ApiController]
 [Route("api/students/{studentId:guid}")]
-public sealed class EnrollmentsController : ControllerBase
+public sealed class EnrollmentsController(ISender sender) : ControllerBase
 {
     private const string EnrollmentRoute = "enrollments/{courseId:guid}";
 
@@ -26,10 +26,9 @@ public sealed class EnrollmentsController : ControllerBase
     public async Task<IActionResult> Create(
         Guid studentId,
         EnrollStudentRequest request,
-        [FromServices] ICommandHandler<EnrollStudentCommand, Result> handler,
         CancellationToken cancellationToken)
     {
-        var result = await handler.HandleAsync(new EnrollStudentCommand(studentId, request.CourseId), cancellationToken);
+        var result = await sender.Send(new EnrollStudentCommand(studentId, request.CourseId), cancellationToken);
         return result.IsSuccess ? NoContent() : result.ToProblemDetails(HttpContext);
     }
 
@@ -41,10 +40,9 @@ public sealed class EnrollmentsController : ControllerBase
     public async Task<ActionResult<EnrollmentResponse>> Get(
         Guid studentId,
         Guid courseId,
-        [FromServices] IQueryHandler<GetEnrollmentQuery, Result<EnrollmentResponse>> handler,
         CancellationToken cancellationToken)
     {
-        var result = await handler.HandleAsync(new GetEnrollmentQuery(studentId, courseId), cancellationToken);
+        var result = await sender.Send(new GetEnrollmentQuery(studentId, courseId), cancellationToken);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblemDetails(HttpContext);
     }
 
@@ -57,10 +55,9 @@ public sealed class EnrollmentsController : ControllerBase
     public async Task<IActionResult> Cancel(
         Guid studentId,
         Guid courseId,
-        [FromServices] ICommandHandler<CancelEnrollmentCommand, Result> handler,
         CancellationToken cancellationToken)
     {
-        var result = await handler.HandleAsync(new CancelEnrollmentCommand(studentId, courseId), cancellationToken);
+        var result = await sender.Send(new CancelEnrollmentCommand(studentId, courseId), cancellationToken);
         return result.IsSuccess ? NoContent() : result.ToProblemDetails(HttpContext);
     }
 
@@ -71,12 +68,11 @@ public sealed class EnrollmentsController : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PagedResult<StudentCourseResponse>>> ListEnrolledCourses(
         Guid studentId,
-        [FromServices] IQueryHandler<ListStudentCoursesQuery, Result<PagedResult<StudentCourseResponse>>> handler,
         CancellationToken cancellationToken,
         [FromQuery] int page = Pagination.DefaultPage,
         [FromQuery] int pageSize = Pagination.DefaultPageSize)
     {
-        var result = await handler.HandleAsync(new ListStudentCoursesQuery(studentId, page, pageSize), cancellationToken);
+        var result = await sender.Send(new ListStudentCoursesQuery(studentId, page, pageSize), cancellationToken);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblemDetails(HttpContext);
     }
 }

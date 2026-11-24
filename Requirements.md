@@ -99,7 +99,7 @@ Applied by migrations on startup:
 
 ## Project Notes
 Technical facts specific to this project. `AGENTS.md` is generic and refers to these through placeholders.
-- Architecture: Clean Architecture + CQRS with `IApplicationDbContext` (no repositories).
+- Architecture: Clean Architecture + CQRS with MediatR 12.5.0 (`ISender`, `IRequestHandler`, pipeline behaviors) and `IApplicationDbContext` (no repositories).
 - `[Project]` = `School`: `SchoolDbContext` (implements `IApplicationDbContext`), `SchoolSeed`.
 - Database provider: SQLite, connection string `School` = `Data Source=school.db;Foreign Keys=True` (file created next to the WebAPI project). Primary-key violations are detected by SQLite extended error code `1555` in `SchoolDbContext.TrySaveEnrollmentAsync`.
 - Solution file: `CleanArchitectureTemplate_CQRS_MediatR_IApplicationDbContext.slnx`.

@@ -1,14 +1,15 @@
 using Application.Common.Abstractions;
 using Application.Common.Results;
 using Application.Shared.Errors;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 
 namespace Application.Enrollments.Commands.EnrollStudent;
 
 internal sealed class EnrollStudentCommandHandler(IApplicationDbContext db, TimeProvider clock)
-    : ICommandHandler<EnrollStudentCommand, Result>
+    : IRequestHandler<EnrollStudentCommand, Result>
 {
-    public async Task<Result> HandleAsync(EnrollStudentCommand command, CancellationToken cancellationToken)
+    public async Task<Result> Handle(EnrollStudentCommand command, CancellationToken cancellationToken)
     {
         if (!await db.Students.AnyAsync(student => student.Id == command.StudentId, cancellationToken))
         {

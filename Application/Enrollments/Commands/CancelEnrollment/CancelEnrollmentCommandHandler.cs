@@ -1,14 +1,15 @@
 using Application.Common.Abstractions;
 using Application.Common.Results;
 using Application.Shared.Errors;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 
 namespace Application.Enrollments.Commands.CancelEnrollment;
 
 internal sealed class CancelEnrollmentCommandHandler(IApplicationDbContext db)
-    : ICommandHandler<CancelEnrollmentCommand, Result>
+    : IRequestHandler<CancelEnrollmentCommand, Result>
 {
-    public async Task<Result> HandleAsync(CancelEnrollmentCommand command, CancellationToken cancellationToken)
+    public async Task<Result> Handle(CancelEnrollmentCommand command, CancellationToken cancellationToken)
     {
         var registration = await (
             from enrollment in db.Enrollments

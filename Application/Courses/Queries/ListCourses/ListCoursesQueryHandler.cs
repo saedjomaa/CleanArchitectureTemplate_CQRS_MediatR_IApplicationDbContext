@@ -2,14 +2,15 @@ using Application.Common.Abstractions;
 using Application.Common.Pagination;
 using Application.Common.Responses;
 using Application.Common.Results;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 
 namespace Application.Courses.Queries.ListCourses;
 
 internal sealed class ListCoursesQueryHandler(IApplicationDbContext db)
-    : IQueryHandler<ListCoursesQuery, Result<PagedResult<CourseResponse>>>
+    : IRequestHandler<ListCoursesQuery, Result<PagedResult<CourseResponse>>>
 {
-    public async Task<Result<PagedResult<CourseResponse>>> HandleAsync(
+    public async Task<Result<PagedResult<CourseResponse>>> Handle(
         ListCoursesQuery query, CancellationToken cancellationToken)
     {
         var page = await db.Courses.AsNoTracking()

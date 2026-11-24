@@ -2,14 +2,15 @@ using Application.Common.Abstractions;
 using Application.Common.Responses;
 using Application.Common.Results;
 using Application.Shared.Errors;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 
 namespace Application.Enrollments.Queries.GetEnrollment;
 
 internal sealed class GetEnrollmentQueryHandler(IApplicationDbContext db)
-    : IQueryHandler<GetEnrollmentQuery, Result<EnrollmentResponse>>
+    : IRequestHandler<GetEnrollmentQuery, Result<EnrollmentResponse>>
 {
-    public async Task<Result<EnrollmentResponse>> HandleAsync(
+    public async Task<Result<EnrollmentResponse>> Handle(
         GetEnrollmentQuery query, CancellationToken cancellationToken)
     {
         var enrollment = await db.Enrollments.AsNoTracking()

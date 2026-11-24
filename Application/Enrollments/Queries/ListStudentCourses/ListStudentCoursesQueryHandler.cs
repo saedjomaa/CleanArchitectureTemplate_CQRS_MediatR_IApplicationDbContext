@@ -3,14 +3,15 @@ using Application.Common.Pagination;
 using Application.Common.Responses;
 using Application.Common.Results;
 using Application.Shared.Errors;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 
 namespace Application.Enrollments.Queries.ListStudentCourses;
 
 internal sealed class ListStudentCoursesQueryHandler(IApplicationDbContext db)
-    : IQueryHandler<ListStudentCoursesQuery, Result<PagedResult<StudentCourseResponse>>>
+    : IRequestHandler<ListStudentCoursesQuery, Result<PagedResult<StudentCourseResponse>>>
 {
-    public async Task<Result<PagedResult<StudentCourseResponse>>> HandleAsync(
+    public async Task<Result<PagedResult<StudentCourseResponse>>> Handle(
         ListStudentCoursesQuery query, CancellationToken cancellationToken)
     {
         if (!await db.Students.AsNoTracking().AnyAsync(student => student.Id == query.StudentId, cancellationToken))

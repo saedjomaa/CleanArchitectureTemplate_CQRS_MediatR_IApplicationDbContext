@@ -1,10 +1,10 @@
-using Application.Common.Abstractions;
 using Application.Common.Pagination;
 using Application.Common.Responses;
 using Application.Common.Results;
 using Application.JsonPlaceholder.Commands.CreatePost;
 using Application.JsonPlaceholder.Queries.GetUser;
 using Application.JsonPlaceholder.Queries.ListUsers;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using WebAPI.Diagnostics;
 
@@ -16,7 +16,7 @@ namespace WebAPI.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/jsonplaceholder")]
-public sealed class JsonPlaceholderController : ControllerBase
+public sealed class JsonPlaceholderController(ISender sender) : ControllerBase
 {
     [HttpGet("users")]
     [EndpointSummary("List users from JSONPlaceholder")]
@@ -25,12 +25,11 @@ public sealed class JsonPlaceholderController : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status504GatewayTimeout)]
     public async Task<ActionResult<PagedResult<JsonPlaceholderUserResponse>>> ListUsers(
-        [FromServices] IQueryHandler<ListUsersQuery, Result<PagedResult<JsonPlaceholderUserResponse>>> handler,
         CancellationToken cancellationToken,
         [FromQuery] int page = Pagination.DefaultPage,
         [FromQuery] int pageSize = Pagination.DefaultPageSize)
     {
-        var result = await handler.HandleAsync(new ListUsersQuery(page, pageSize), cancellationToken);
+        var result = await sender.Send(new ListUsersQuery(page, pageSize), cancellationToken);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblemDetails(HttpContext);
     }
 
@@ -43,10 +42,9 @@ public sealed class JsonPlaceholderController : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status504GatewayTimeout)]
     public async Task<ActionResult<JsonPlaceholderUserResponse>> GetUser(
         int id,
-        [FromServices] IQueryHandler<GetUserQuery, Result<JsonPlaceholderUserResponse>> handler,
         CancellationToken cancellationToken)
     {
-        var result = await handler.HandleAsync(new GetUserQuery(id), cancellationToken);
+        var result = await sender.Send(new GetUserQuery(id), cancellationToken);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblemDetails(HttpContext);
     }
 
@@ -58,10 +56,9 @@ public sealed class JsonPlaceholderController : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status504GatewayTimeout)]
     public async Task<ActionResult<JsonPlaceholderPostResponse>> CreatePost(
         CreatePostCommand command,
-        [FromServices] ICommandHandler<CreatePostCommand, Result<JsonPlaceholderPostResponse>> handler,
         CancellationToken cancellationToken)
     {
-        var result = await handler.HandleAsync(command, cancellationToken);
+        var result = await sender.Send(command, cancellationToken);
 
         // There is no endpoint to read a single post, so the 201 has no Location header.
         return result.IsSuccess

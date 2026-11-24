@@ -6,9 +6,9 @@ Placeholders used below: `[Project]` (project name prefix, e.g. for the `DbConte
 
 ## Stack
 - ASP.NET Core Web API with **Controllers**. The target framework, nullable and implicit usings are set once in `Directory.Build.props`.
-- Clean Architecture + CQRS
-- **No MediatR/Mediator. No AutoMapper** (manual mapping only)
-- FluentValidation, EF Core, Scrutor, Serilog
+- Clean Architecture + CQRS with **MediatR 12.x** to dispatch commands and queries. Stay on 12.x: it is the last Apache-2.0 version; 13+ requires a commercial license key.
+- **No AutoMapper** (manual mapping only)
+- FluentValidation (with `FluentValidation.DependencyInjectionExtensions`), EF Core, Serilog
 
 ## Layers (dependencies point inward only)
 - `Domain`: entities, enums, domain exceptions. References nothing.
@@ -40,8 +40,8 @@ Handlers depend on interfaces, never on concrete `DbContext` or Infrastructure t
 ```
 Application/
   Common/
-    Abstractions/   (ICommandHandler, IQueryHandler, IApplicationDbContext)
-    Decorators/     (ValidationDecorator, LoggingDecorator)
+    Abstractions/   (IApplicationDbContext, I[Service]Client)
+    Behaviors/      (LoggingBehavior, ValidationBehavior)
     Pagination/     (Pagination, PageQueryValidator)
     Responses/      (every response record: [Entity]Response, ...)
     Results/        (Result, Error, PagedResult)
@@ -63,11 +63,11 @@ Application/
 
 ## Rules
 - Commands change state and return `Result<T>` when there is a response payload (e.g. `Result<Guid>` for a created entity ID), or `Result` when there is no payload. Queries are read-only and return `Result<TResponse>`.
-- Commands and queries are plain records. No marker interfaces.
-- Handlers: `internal sealed`, primary constructor, return `Result` or `Result<T>` according to the command or query contract, always pass `CancellationToken`.
+- Commands and queries are `public sealed record`s implementing MediatR `IRequest<TResult>`, where `TResult` is `Result` or `Result<T>`. No other marker interfaces.
+- Handlers: `internal sealed`, primary constructor, implement `IRequestHandler<TRequest, TResult>` (method `Handle`), return `Result` or `Result<T>` according to the command or query contract, always pass `CancellationToken`. A handler never calls `ISender`/`IMediator` to run another command or query.
 - For expected failures (NotFound, Validation, Conflict), return a failed `Result` or `Result<T>` containing an `Error`.
-- Use `ValidationDecorator` to validate commands and queries that have a registered validator. Use a logging decorator for handler execution. Follow the Transactions section for transaction handling.
-- DI: `Application` exposes `AddApplication()`, and `Infrastructure` exposes `AddInfrastructure()`. In `AddApplication()`, use Scrutor to register command and query handlers as scoped services under their handler interfaces. Set `publicOnly: false` in `AddClasses` to include `internal sealed` handlers.
+- Validation and logging run as MediatR pipeline behaviors (`IPipelineBehavior<,>` in `Application/Common/Behaviors`), never inside handlers: `LoggingBehavior` (outermost) then `ValidationBehavior`. A request that fails validation never reaches its handler and returns `Validation.Failed`. Both behaviors are constrained to `TResponse : IResult<TResponse>`. Follow the Transactions section for transaction handling.
+- DI: `Application` exposes `AddApplication()`, and `Infrastructure` exposes `AddInfrastructure()`. In `AddApplication()`, `AddMediatR` registers every handler in the Application assembly (`RegisterServicesFromAssembly`) and the behaviors (`AddOpenBehavior`, outermost first), and `AddValidatorsFromAssembly(..., includeInternalTypes: true)` registers the `internal sealed` validators. No manual handler registration.
 
 ## Mapping
 - Commands: build entities through domain factory methods (`[Entity].Create(...)`), not object initializers. Use a `ToEntity` extension only when the factory call needs non-trivial argument mapping.
@@ -87,7 +87,7 @@ Application/
 - `ErrorType` maps to HTTP status in `ResultExtensions.ToProblemDetails`: `Validation` → 400, `NotFound` → 404, `Conflict` → 409, `BadGateway` → 502, `GatewayTimeout` → 504. The error code is returned in the `code` extension of the `ProblemDetails`.
 
 ## Controllers
-- No business logic. Inject handlers per action with `[FromServices]`, convert a failed `Result` with `result.ToProblemDetails(HttpContext)`.
+- No business logic. Inject MediatR `ISender` through the controller's primary constructor, send one command or query per action with `sender.Send(request, cancellationToken)`, and convert a failed `Result` with `result.ToProblemDetails(HttpContext)`.
 - Request body:
   - When the body maps 1:1 to the command, bind the command record directly (e.g. `Create[Entity]Command`).
   - When the command also needs route values, define a `[Action]Request` record at the bottom of the controller file and build the command in the action.
@@ -135,7 +135,7 @@ Placeholder: `[Service]` (external API name, e.g. the provider's product name).
 
 **Transactions**
 - One `SaveChangesAsync` per command is the default and is already atomic.
-- If a command needs multiple saves/operations in one transaction, open an explicit transaction inside that handler. No global transaction decorator.
+- If a command needs multiple saves/operations in one transaction, open an explicit transaction inside that handler. No global transaction behavior.
 
 **Concurrency**
 - Use a concurrency token (`RowVersion`, a `Guid` regenerated by the entity on every change) on entities that support concurrent edits.
